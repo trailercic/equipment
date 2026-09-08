@@ -6,6 +6,7 @@ import { ROLE_LABELS, type Profile, type Role } from "@/lib/types";
 
 const emptyForm = {
   full_name: "",
+  username: "",
   email: "",
   password: "",
   role: "FLEET" as Role,
@@ -108,6 +109,17 @@ export default function AdminUsers() {
               />
               <input
                 required
+                placeholder="Username (for login)"
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={form.username}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, username: e.target.value }))
+                }
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              <input
+                required
                 type="email"
                 placeholder="Email"
                 value={form.email}
@@ -161,6 +173,7 @@ export default function AdminUsers() {
               <thead className="bg-slate-50 text-slate-500 text-left">
                 <tr>
                   <th className="px-4 py-3 font-medium">Name</th>
+                  <th className="px-4 py-3 font-medium">Username</th>
                   <th className="px-4 py-3 font-medium">Role</th>
                   <th className="px-4 py-3 font-medium"></th>
                 </tr>
@@ -168,7 +181,7 @@ export default function AdminUsers() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={3} className="px-4 py-6 text-center text-slate-500">
+                    <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
                       Loading...
                     </td>
                   </tr>
@@ -177,6 +190,9 @@ export default function AdminUsers() {
                     <tr key={u.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium text-slate-900">
                         {u.full_name} {u.id === myProfile?.id && "(you)"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {u.username || "—"}
                       </td>
                       <td className="px-4 py-3">
                         <select

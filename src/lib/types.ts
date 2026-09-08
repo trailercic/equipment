@@ -7,6 +7,7 @@ export type Destination = "SOHO" | "MEPA";
 export interface Profile {
   id: string;
   full_name: string;
+  username: string | null;
   role: Role;
   created_at: string;
 }

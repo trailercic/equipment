@@ -53,9 +53,9 @@ export const handler: Handler = async (event) => {
   try {
     if (event.httpMethod === "POST") {
       const body = JSON.parse(event.body || "{}");
-      const { email, password, full_name, role } = body;
+      const { email, password, full_name, username, role } = body;
 
-      if (!email || !password || !full_name || !role) {
+      if (!email || !password || !full_name || !username || !role) {
         return {
           statusCode: 400,
           body: JSON.stringify({ error: "Nedostaju obavezna polja" }),
@@ -78,7 +78,11 @@ export const handler: Handler = async (event) => {
         email: String(email).trim().toLowerCase(),
         password: String(password),
         email_confirm: true,
-        user_metadata: { full_name: String(full_name).trim(), role },
+        user_metadata: {
+          full_name: String(full_name).trim(),
+          username: String(username).trim().toLowerCase(),
+          role,
+        },
       });
 
       if (error) {
