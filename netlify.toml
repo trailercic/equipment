@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# SPA - sve rute (osim /.netlify/functions/*) vraćaju index.html,
+# React Router onda prikazuje odgovarajuću stranicu
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
