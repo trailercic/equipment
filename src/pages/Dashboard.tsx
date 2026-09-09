@@ -18,10 +18,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"" | VehicleStatus>("");
   const [q, setQ] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
 
   const canAdd = profile?.role === "MAINTENANCE" || profile?.role === "ADMIN";
   const canChangeStatus = profile?.role === "FLEET" || profile?.role === "ADMIN";
-  const canDelete = profile?.role === "ADMIN";
+  const canArchive = profile?.role === "ADMIN";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -31,13 +32,16 @@ export default function Dashboard() {
       .order("created_at", { ascending: false });
 
     if (statusFilter) query = query.eq("status", statusFilter);
+    query = showArchived
+      ? query.not("archived_at", "is", null)
+      : query.is("archived_at", null);
 
     const { data, error } = await query;
     if (!error && data) {
       setVehicles(data as Vehicle[]);
     }
     setLoading(false);
-  }, [statusFilter]);
+  }, [statusFilter, showArchived]);
 
   useEffect(() => {
     load();
@@ -80,9 +84,24 @@ export default function Dashboard() {
       .eq("id", v.id);
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this vehicle?")) return;
-    const { error } = await supabase.from("vehicles").delete().eq("id", id);
+  async function handleArchive(id: string) {
+    if (!confirm("Archive this vehicle? It will be moved out of the active list, but kept in the archive.")) return;
+    const { error } = await supabase
+      .from("vehicles")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", id);
+    if (!error) {
+      setVehicles((prev) => prev.filter((v) => v.id !== id));
+    } else {
+      alert(error.message);
+    }
+  }
+
+  async function handleRestore(id: string) {
+    const { error } = await supabase
+      .from("vehicles")
+      .update({ archived_at: null })
+      .eq("id", id);
     if (!error) {
       setVehicles((prev) => prev.filter((v) => v.id !== id));
     } else {
@@ -96,12 +115,12 @@ export default function Dashboard() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-lg font-semibold text-slate-900">
-            Vehicles in the shop
+            {showArchived ? "Archived vehicles" : "Vehicles in the shop"}
           </h1>
-          {canAdd && <AddVehicleForm onAdded={load} />}
+          {canAdd && !showArchived && <AddVehicleForm onAdded={load} />}
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap gap-3">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center">
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -120,6 +139,17 @@ export default function Dashboard() {
               </option>
             ))}
           </select>
+          {canArchive && (
+            <label className="flex items-center gap-2 text-sm text-slate-600 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              Show archived
+            </label>
+          )}
         </div>
 
         {loading ? (
@@ -187,14 +217,22 @@ export default function Dashboard() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        {canDelete && (
-                          <button
-                            onClick={() => handleDelete(v.id)}
-                            className="text-red-500 hover:underline text-xs font-medium"
-                          >
-                            Delete
-                          </button>
-                        )}
+                        {canArchive &&
+                          (showArchived ? (
+                            <button
+                              onClick={() => handleRestore(v.id)}
+                              className="text-brand-600 hover:underline text-xs font-medium"
+                            >
+                              Restore
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleArchive(v.id)}
+                              className="text-red-500 hover:underline text-xs font-medium"
+                            >
+                              Archive
+                            </button>
+                          ))}
                       </td>
                     </tr>
                   ))}

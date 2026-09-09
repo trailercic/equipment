@@ -68,6 +68,7 @@ export default function Board() {
     const { data, error } = await supabase
       .from("vehicles")
       .select("*")
+      .is("archived_at", null)
       .order("created_at", { ascending: true });
     if (!error && data) setVehicles(data as Vehicle[]);
   }, []);
@@ -102,7 +103,10 @@ export default function Board() {
     .sort((a, b) => {
       const order = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
       if (order !== 0) return order;
-      return a.created_at.localeCompare(b.created_at);
+      // Whoever arrives first goes on top: arrival date first, then ETA.
+      const dateCompare = a.arrival_date.localeCompare(b.arrival_date);
+      if (dateCompare !== 0) return dateCompare;
+      return (a.eta || "").localeCompare(b.eta || "");
     });
 
   // Ako lista ne stane na ekran, umesto scroll bara pustimo je da se
