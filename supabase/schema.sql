@@ -39,10 +39,14 @@ $$;
 
 alter table public.profiles enable row level security;
 
+-- Svi ulogovani korisnici smeju da VIDE osnovne podatke o nalozima (ime),
+-- da bi na Dashboard-u moglo da piše ko je dodao vozilo / menjao status.
 drop policy if exists "profiles_select_own_or_admin" on public.profiles;
-create policy "profiles_select_own_or_admin"
+drop policy if exists "profiles_select_authenticated" on public.profiles;
+create policy "profiles_select_authenticated"
   on public.profiles for select
-  using (auth.uid() = id or public.is_admin());
+  to authenticated
+  using (true);
 
 drop policy if exists "profiles_update_admin" on public.profiles;
 create policy "profiles_update_admin"
@@ -87,7 +91,11 @@ create table if not exists public.vehicles (
   destination text not null default 'SOHO' check (destination in ('SOHO','MEPA')),
   status text not null default 'ARRIVING' check (status in ('ARRIVING','ARRIVED','READY')),
   ready_at timestamptz,
+  archived_at timestamptz,
   created_by uuid references public.profiles(id),
+  status_updated_by uuid references public.profiles(id),
+  gps_distance_miles numeric,
+  gps_updated_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
