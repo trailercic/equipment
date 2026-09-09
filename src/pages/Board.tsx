@@ -131,7 +131,7 @@ export default function Board() {
   }, [visible.length]);
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col p-6">
+    <div className="h-screen bg-slate-950 flex flex-col p-6 overflow-hidden">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-4xl font-bold text-white">Equipment Coming</h1>
         <div className="text-2xl text-slate-400 tabular-nums">
@@ -139,7 +139,7 @@ export default function Board() {
         </div>
       </div>
 
-      <div ref={wrapRef} className="flex-1 overflow-hidden">
+      <div ref={wrapRef} className="flex-1 min-h-0 overflow-hidden">
         {visible.length === 0 ? (
           <p className="text-slate-500 text-xl text-center py-10">
             — no vehicles —
