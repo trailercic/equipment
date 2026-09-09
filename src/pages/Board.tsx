@@ -21,7 +21,7 @@ function isToday(isoString: string) {
 function Row({ v }: { v: Vehicle }) {
   const colors = STATUS_COLORS[v.status];
   return (
-    <div className="flex items-center gap-4 bg-slate-800 rounded-xl px-5 py-4">
+    <div className="flex items-center gap-4 bg-slate-800 rounded-xl px-5 py-3">
       <span
         className={`shrink-0 w-4 h-4 rounded-full ${colors.dot}`}
         aria-hidden
