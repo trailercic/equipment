@@ -49,6 +49,11 @@ function Row({ v }: { v: Vehicle }) {
           {v.eta && <span>ETA {v.eta} · </span>}
           {new Date(v.arrival_date).toLocaleDateString("en-US")}
         </div>
+        {v.status !== "READY" && v.gps_distance_miles != null && (
+          <div className="text-sky-400 text-base tabular-nums mt-1">
+            {v.gps_distance_miles} mi from {v.destination}
+          </div>
+        )}
       </div>
     </div>
   );
