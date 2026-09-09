@@ -25,6 +25,9 @@ export interface Vehicle {
   ready_at: string | null;
   archived_at: string | null;
   created_by: string | null;
+  status_updated_by: string | null;
+  gps_distance_miles: number | null;
+  gps_updated_at: string | null;
   created_at: string;
   updated_at: string;
 }
