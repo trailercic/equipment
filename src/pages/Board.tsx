@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   DESTINATION_LABELS,
@@ -54,9 +54,15 @@ function Row({ v }: { v: Vehicle }) {
   );
 }
 
+// Koliko piksela u sekundi se tabla auto-skroluje kad lista ne stane na ekran.
+const SCROLL_SPEED_PX_PER_SEC = 40;
+
 export default function Board() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [now, setNow] = useState(new Date());
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [scrollDuration, setScrollDuration] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -99,6 +105,31 @@ export default function Board() {
       return a.created_at.localeCompare(b.created_at);
     });
 
+  // Ako lista ne stane na ekran, umesto scroll bara pustimo je da se
+  // beskonačno i glatko "vrti" u krug (lista se duplira, pa se animacijom
+  // pomera za tačno pola svoje visine, što izgleda kao neprekidna petlja).
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    const list = listRef.current;
+    if (!wrap || !list) return;
+
+    const measure = () => {
+      const contentHeight = list.scrollHeight;
+      const wrapHeight = wrap.clientHeight;
+      if (contentHeight > wrapHeight + 1) {
+        setScrollDuration(contentHeight / SCROLL_SPEED_PX_PER_SEC);
+      } else {
+        setScrollDuration(null);
+      }
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(wrap);
+    ro.observe(list);
+    return () => ro.disconnect();
+  }, [visible.length]);
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col p-6">
       <div className="flex items-center justify-between mb-6">
@@ -108,15 +139,34 @@ export default function Board() {
         </div>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto">
-        {visible.length === 0 && (
+      <div ref={wrapRef} className="flex-1 overflow-hidden">
+        {visible.length === 0 ? (
           <p className="text-slate-500 text-xl text-center py-10">
             — no vehicles —
           </p>
+        ) : (
+          <div
+            className="flex flex-col gap-3"
+            style={
+              scrollDuration
+                ? { animation: `board-scroll ${scrollDuration}s linear infinite` }
+                : undefined
+            }
+          >
+            <div ref={listRef} className="flex flex-col gap-3">
+              {visible.map((v) => (
+                <Row key={v.id} v={v} />
+              ))}
+            </div>
+            {scrollDuration && (
+              <div className="flex flex-col gap-3" aria-hidden="true">
+                {visible.map((v) => (
+                  <Row key={`dup-${v.id}`} v={v} />
+                ))}
+              </div>
+            )}
+          </div>
         )}
-        {visible.map((v) => (
-          <Row key={v.id} v={v} />
-        ))}
       </div>
     </div>
   );
