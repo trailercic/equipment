@@ -5,3 +5,12 @@
 body {
   @apply bg-slate-50 text-slate-900;
 }
+
+@keyframes board-scroll {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
