@@ -45,9 +45,18 @@ async function fetchLocation(gpsId: string): Promise<RouteMateLocation | null> {
     `https://cloud.routemate.ai/api/v0/vehicle/location/${encodeURIComponent(gpsId)}`,
     { headers: { "X-Api-Key": ROUTEMATE_API_KEY } }
   );
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(
+      `update-gps: RouteMate vratio ${res.status} za id "${gpsId}": ${body.slice(0, 300)}`
+    );
+    return null;
+  }
   const data = await res.json();
   if (typeof data?.latitude !== "number" || typeof data?.longitude !== "number") {
+    console.error(
+      `update-gps: RouteMate odgovor za id "${gpsId}" nema latitude/longitude: ${JSON.stringify(data).slice(0, 300)}`
+    );
     return null;
   }
   return { latitude: data.latitude, longitude: data.longitude };
@@ -73,16 +82,28 @@ export default async () => {
     return;
   }
 
+  console.log(
+    `update-gps: ${vehicles.length} vozilo(a) za proveru: ${vehicles
+      .map((v) => `${v.plate} -> ${v.destination}`)
+      .join(", ") || "(nema aktivnih vozila)"}`
+  );
+
   for (const v of vehicles) {
     const gpsId = String(v.plate || "").split("/")[0]?.trim();
-    if (!gpsId) continue;
+    if (!gpsId) {
+      console.error(`update-gps: vozilo ${v.id} nema validan "Truck and Trailer" format (plate="${v.plate}")`);
+      continue;
+    }
 
     try {
       const loc = await fetchLocation(gpsId);
       if (!loc) continue;
 
       const yard = YARDS[v.destination as "SOHO" | "MEPA"];
-      if (!yard) continue;
+      if (!yard) {
+        console.error(`update-gps: nepoznata destinacija "${v.destination}" za vozilo ${v.id}`);
+        continue;
+      }
 
       const distance = haversineMiles(
         loc.latitude,
@@ -91,20 +112,28 @@ export default async () => {
         yard.lng
       );
 
-      await adminClient
+      const rounded = Math.round(distance * 10) / 10;
+
+      const { error: updateError } = await adminClient
         .from("vehicles")
         .update({
-          gps_distance_miles: Math.round(distance * 10) / 10,
+          gps_distance_miles: rounded,
           gps_updated_at: new Date().toISOString(),
         })
         .eq("id", v.id);
+
+      if (updateError) {
+        console.error(`update-gps: upis u bazu nije uspeo za vozilo ${v.id} (${gpsId})`, updateError);
+      } else {
+        console.log(`update-gps: vozilo ${v.id} (${gpsId}) azurirano - ${rounded} mi od ${v.destination}`);
+      }
     } catch (e) {
       console.error(`update-gps: greška za vozilo ${v.id} (${gpsId})`, e);
     }
   }
 };
 
-// Netlify Scheduled Function - sama se budi na svakih 15 minuta.
+// Netlify Scheduled Function - sama se budi na svakih 30 minuta.
 export const config: Config = {
-  schedule: "*/15 * * * *",
+  schedule: "*/30 * * * *",
 };
