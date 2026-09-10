@@ -99,7 +99,7 @@ async function fetchLocation(routeMateId: string): Promise<RouteMateLocation | n
 }
 
 // PAUZIRANO - postavi na false da ponovo uključiš GPS proveru.
-const ENABLED = false;
+const ENABLED = true;
 
 export default async () => {
   if (!ENABLED) {
@@ -114,12 +114,14 @@ export default async () => {
     return;
   }
 
-  // Udaljenost nam treba samo za vozila koja još nisu stigla.
+  // GPS proveru radimo samo za vozila koja su još na putu (ARRIVING).
+  // Kad vozilo stigne (0 mi), status se sam prebacuje na ARRIVED
+  // i ono ispada iz ove liste sledeći put.
   const { data: vehicles, error } = await adminClient
     .from("vehicles")
     .select("id, plate, destination")
     .is("archived_at", null)
-    .in("status", ["ARRIVING", "ARRIVED"]);
+    .eq("status", "ARRIVING");
 
   if (error || !vehicles) {
     console.error("update-gps: greška pri čitanju vozila", error);
@@ -169,19 +171,30 @@ export default async () => {
       );
 
       const rounded = Math.round(distance * 10) / 10;
+      // Kad je u krugu od 0 milja, smatramo da je vozilo stiglo.
+      const arrived = rounded <= 0;
+
+      const updatePayload: Record<string, unknown> = {
+        gps_distance_miles: rounded,
+        gps_updated_at: new Date().toISOString(),
+      };
+      if (arrived) {
+        updatePayload.status = "ARRIVED";
+      }
 
       const { error: updateError } = await adminClient
         .from("vehicles")
-        .update({
-          gps_distance_miles: rounded,
-          gps_updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq("id", v.id);
 
       if (updateError) {
         console.error(`update-gps: upis u bazu nije uspeo za vozilo ${v.id} (${gpsId})`, updateError);
       } else {
-        console.log(`update-gps: vozilo ${v.id} (${gpsId}) azurirano - ${rounded} mi od ${v.destination}`);
+        console.log(
+          `update-gps: vozilo ${v.id} (${gpsId}) azurirano - ${rounded} mi od ${v.destination}${
+            arrived ? " (status promenjen na ARRIVED)" : ""
+          }`
+        );
       }
     } catch (e) {
       console.error(`update-gps: greška za vozilo ${v.id} (${gpsId})`, e);
