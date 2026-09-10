@@ -45,33 +45,37 @@ interface RouteMateVehicle {
 }
 
 // RouteMate-ov "id" (interni ID u njihovoj bazi) je RAZLIČIT od "vehicleId"
-// (broj kamiona koji mi upisujemo u "Truck and Trailer"). Zato prvo povučemo
-// celu listu vozila i napravimo mapu vehicleId/licensePlate -> pravi id.
-async function fetchRouteMateVehicleMap(): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
+// (broj kamiona koji mi upisujemo u "Truck and Trailer"). Zato za svaki kamion
+// posebno tražimo (quickSearch) samo njega, umesto da vučemo celu listu vozila.
+async function findRouteMateId(truckNumber: string): Promise<string | null> {
   const res = await fetch(
-    "https://cloud.routemate.ai/api/v0/assets/vehicles?page=1&elements=1000&asc=true&orderBy=vehicleId",
+    `https://cloud.routemate.ai/api/v0/assets/vehicles?page=1&elements=25&asc=true&orderBy=vehicleId&quickSearch=${encodeURIComponent(
+      truckNumber
+    )}`,
     { headers: { "X-Api-Key": ROUTEMATE_API_KEY } }
   );
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     console.error(
-      `update-gps: RouteMate vratio ${res.status} pri čitanju liste vozila: ${body.slice(0, 300)}`
+      `update-gps: RouteMate vratio ${res.status} pri pretrazi vozila "${truckNumber}": ${body.slice(0, 300)}`
     );
-    return map;
+    return null;
   }
   const json = await res.json();
   const list: RouteMateVehicle[] = json?.data || [];
-  for (const rv of list) {
-    if (rv.vehicleId) map.set(String(rv.vehicleId).trim().toLowerCase(), rv.id);
-    if (rv.licensePlate) map.set(String(rv.licensePlate).trim().toLowerCase(), rv.id);
-  }
-  console.log(
-    `update-gps: RouteMate lista vozila učitana - ${list.length} vozilo(a): ${list
-      .map((rv) => rv.vehicleId || rv.licensePlate || rv.id)
-      .join(", ")}`
+  const needle = truckNumber.trim().toLowerCase();
+  const match = list.find(
+    (rv) =>
+      (rv.vehicleId && String(rv.vehicleId).trim().toLowerCase() === needle) ||
+      (rv.licensePlate && String(rv.licensePlate).trim().toLowerCase() === needle)
   );
-  return map;
+  if (!match) {
+    console.error(
+      `update-gps: broj "${truckNumber}" nije pronađen u RouteMate-u (quickSearch vratio ${list.length} rezultat(a))`
+    );
+    return null;
+  }
+  return match.id;
 }
 
 interface RouteMateLocation {
@@ -139,8 +143,6 @@ export default async () => {
 
   if (vehicles.length === 0) return;
 
-  const routeMateMap = await fetchRouteMateVehicleMap();
-
   for (const v of vehicles) {
     const gpsId = String(v.plate || "").split("/")[0]?.trim();
     if (!gpsId) {
@@ -148,11 +150,8 @@ export default async () => {
       continue;
     }
 
-    const routeMateId = routeMateMap.get(gpsId.toLowerCase());
+    const routeMateId = await findRouteMateId(gpsId);
     if (!routeMateId) {
-      console.error(
-        `update-gps: broj "${gpsId}" (vozilo ${v.id}) nije pronađen u RouteMate listi vozila`
-      );
       continue;
     }
 
