@@ -17,6 +17,9 @@ const YARDS: Record<"SOHO" | "MEPA", { lat: number; lng: number }> = {
   MEPA: { lat: 41.67798925122315, lng: -87.70979782220562 },
 };
 
+// Kad vozilo uđe u ovaj krug (u miljama) oko jarda, status se sam prebacuje na ARRIVED.
+const ARRIVED_RADIUS_MILES = 0.5;
+
 const EARTH_RADIUS_MILES = 3958.8;
 
 function haversineMiles(
@@ -171,8 +174,8 @@ export default async () => {
       );
 
       const rounded = Math.round(distance * 10) / 10;
-      // Kad je u krugu od 0 milja, smatramo da je vozilo stiglo.
-      const arrived = rounded <= 0;
+      // Kad uđe u krug od 0.5 milja od jarda, smatramo da je vozilo stiglo.
+      const arrived = distance <= ARRIVED_RADIUS_MILES;
 
       const updatePayload: Record<string, unknown> = {
         gps_distance_miles: rounded,
