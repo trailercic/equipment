@@ -18,8 +18,9 @@ function isToday(isoString: string) {
   );
 }
 
-function Row({ v }: { v: Vehicle }) {
+function Row({ v, userNames }: { v: Vehicle; userNames: Record<string, string> }) {
   const colors = STATUS_COLORS[v.status];
+  const addedBy = v.created_by ? userNames[v.created_by] : null;
   return (
     <div className="flex items-center gap-4 bg-slate-800 rounded-xl px-5 py-3">
       <span
@@ -38,6 +39,9 @@ function Row({ v }: { v: Vehicle }) {
         <div className="text-slate-400 text-lg">
           {v.reason} · {DESTINATION_LABELS[v.destination]}
         </div>
+        {addedBy && (
+          <div className="text-slate-500 text-sm mt-0.5">Added by: {addedBy}</div>
+        )}
       </div>
       <div className="text-right shrink-0">
         <span
@@ -65,6 +69,7 @@ const SCROLL_SPEED_PX_PER_SEC = 40;
 export default function Board() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [now, setNow] = useState(new Date());
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const wrapRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [scrollDuration, setScrollDuration] = useState<number | null>(null);
@@ -76,6 +81,21 @@ export default function Board() {
       .is("archived_at", null)
       .order("created_at", { ascending: true });
     if (!error && data) setVehicles(data as Vehicle[]);
+  }, []);
+
+  useEffect(() => {
+    // Imena za "Added by" - učitaju se jednom.
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .then(({ data }) => {
+        if (!data) return;
+        const map: Record<string, string> = {};
+        for (const p of data as { id: string; full_name: string }[]) {
+          map[p.id] = p.full_name;
+        }
+        setUserNames(map);
+      });
   }, []);
 
   useEffect(() => {
@@ -164,13 +184,13 @@ export default function Board() {
           >
             <div ref={listRef} className="flex flex-col gap-3">
               {visible.map((v) => (
-                <Row key={v.id} v={v} />
+                <Row key={v.id} v={v} userNames={userNames} />
               ))}
             </div>
             {scrollDuration && (
               <div className="flex flex-col gap-3" aria-hidden="true">
                 {visible.map((v) => (
-                  <Row key={`dup-${v.id}`} v={v} />
+                  <Row key={`dup-${v.id}`} v={v} userNames={userNames} />
                 ))}
               </div>
             )}
