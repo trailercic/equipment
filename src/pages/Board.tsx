@@ -18,9 +18,18 @@ function isToday(isoString: string) {
   );
 }
 
+// "Marko Marković" -> "Marko M." - samo ime i prvo slovo prezimena.
+function shortName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length < 2) return fullName;
+  const first = parts[0];
+  const lastInitial = parts[parts.length - 1][0];
+  return `${first} ${lastInitial}.`;
+}
+
 function Row({ v, userNames }: { v: Vehicle; userNames: Record<string, string> }) {
   const colors = STATUS_COLORS[v.status];
-  const addedBy = v.created_by ? userNames[v.created_by] : null;
+  const addedBy = v.created_by && userNames[v.created_by] ? shortName(userNames[v.created_by]) : null;
   return (
     <div className="flex items-center gap-4 bg-slate-800 rounded-xl px-5 py-3">
       <span
